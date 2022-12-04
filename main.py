@@ -7,6 +7,12 @@ from dotenv import load_dotenv
 import json
 import os
 import time
+import logging
+
+# Log setup
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 # Functions
 def authenticate_api():
@@ -22,7 +28,7 @@ def authenticate_api():
         print(e)
         print("Authentication Error")
 
-def fetch_last_year_tweets(user, api):
+def fetch_last_year_tweets(user, api, write_to_file = False):
     try:
         timeline_params = {
             "user_id":user['id'], 
@@ -70,15 +76,85 @@ def fetch_last_year_tweets(user, api):
             time.sleep(0.5) # Para que la api no se ponga rompehuevos
         # END WHILE
 
-        utils.write_to_file(all_tweets, "all_tweets.json")
+        if (write_to_file):
+            utils.write_to_file(all_tweets, "all_tweets.json")
+
         return all_tweets
     except Exception as e:
         print(e)
 
-def main():
-    # all_tweets = client.get_all_tweets_count(query="", start_time=1666248774)
+def get_last_mention():
     try:
+        with open("last_mention.txt", 'r') as f:
+            last_id = int(f.read().strip())
+        return last_id
+    except Exception as e: 
+        logger.info("Error while getting latest mention tweet id.")
+        logger.info(e)
+
+def put_last_mention(id):
+    try:
+        with open("last_mention.txt", 'w') as f:
+            f.write(str(id))
+            logger.info("Updated the file with the latest tweet id responded")
+    except Exception as e:
+        logger.info("Error while writing latest mention tweet id.")
+        logger.info(e)
+    return
+
+def get_mentions(api):
+    try:
+        last_id = get_last_mention()
+        mentions = api.mentions_timeline(
+            since_id=last_id, 
+            include_entities=False
+            # trim_user=True
+        )
+
+        if len(mentions) == 0:
+            return
+
+        # Esto me va servir para cuando migre a mongoDB
+        mentions = [{
+            "id_str": mention["id_str"],
+            "text": mention["text"],
+            "user": {
+                "screen_name": mention["user"]["screen_name"],
+                "id": int(mention["user"]["id_str"]),
+            }}
+            for mention in mentions]
+
+        
+        return mentions
+    except Exception as e:
+        logger.info(e)
+        logger.info("Error while trying to retrieve mentions.")
+
+def build_tweet(stats):
+    for stat_key, stat_val in stats:
+        pass
+
+
+def main():
+    try:
+        # Auth
         api = authenticate_api()
+
+        mentions = get_mentions(api)
+
+        for mention in mentions:
+            user = mention["user"]
+            # last_year_tweets = fetch_last_year_tweets(user, api)
+            last_year_tweets = None
+            with open("all_tweets.json", "r", encoding="utf-8") as tweets:
+                last_year_tweets = json.load(tweets)
+            
+            stats = ts.get_all_statistics(last_year_tweets)
+
+            print(stats)
+            
+
+
 
         user = api.get_user(screen_name="manuqooi")
         timeline_params = {
@@ -97,22 +173,13 @@ def main():
         #         "retweet_count":tweet["retweet_count"]
         #         } for tweet in tweets]
 
-        # with open('sample.json', 'r', encoding='utf-8') as sample:
-        #     # sample.write(json.dumps(tweets))
-        #     sample = json.load(sample)
-        #     # sample = json.load(sample)
-        #     print("llega")
-        #     best_friends.get_best_friends(sample)
-
 
         # print(tweets)
 
         # tweets = fetch_last_year_tweets(user, api)
-        with open("all_tweets.json", "r", encoding="utf-8") as tweets:
-            tweets = json.load(tweets)
-            bfs = best_friends.get_best_friends(tweets, 4)
-            print(bfs)
-
+        # with open("all_tweets.json", "r", encoding="utf-8") as tweets:
+        #     tweets = json.load(tweets)
+            # bfs = best_friends.get_best_friends(tweets, 3)
 
 
         # curses.get_top_3_curses()

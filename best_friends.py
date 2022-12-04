@@ -10,7 +10,6 @@ def get_best_friends(all_tweets, limit = None):
         mentioned_users_count = mentioned_users_count.items()
         mentioned_users_count = sorted(mentioned_users_count, key=lambda mui: -mui[1])
         
-        print(mentioned_users_count)
         if(limit):
             return(mentioned_users_count[0:limit])
         return(mentioned_users_count)
